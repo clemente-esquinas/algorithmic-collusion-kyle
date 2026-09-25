@@ -1,0 +1,1103 @@
+\documentclass[11pt]{article}
+
+% -------------------- PACKAGES --------------------
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[authoryear,round]{natbib}
+\usepackage{hyperref}
+\hypersetup{pdftitle={Algorithmic Collusion in Financial Markets}, pdfauthor={Clemente Esquinas Coves}}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{parskip}
+\usepackage{subcaption}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+
+\definecolor{codebg}{rgb}{0.97,0.97,0.97}
+\definecolor{codekw}{rgb}{0.0,0.0,0.6}
+\definecolor{codestr}{rgb}{0.6,0.0,0.0}
+\definecolor{codecmt}{rgb}{0.25,0.5,0.35}
+
+\lstdefinestyle{pythonstyle}{
+    language=Python,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{codekw}\bfseries,
+    stringstyle=\color{codestr},
+    commentstyle=\color{codecmt}\itshape,
+    backgroundcolor=\color{codebg},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    numbersep=6pt,
+    frame=single,
+    framesep=4pt,
+    rulecolor=\color{gray!30},
+    breaklines=true,
+    breakatwhitespace=false,
+    postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+    showstringspaces=false,
+    tabsize=4,
+    captionpos=b,
+    upquote=true,
+    literate={—}{{--}}1 {–}{{-}}1 {≈}{{$\approx$}}1 {≥}{{$\geq$}}1
+             {≤}{{$\leq$}}1 {α}{{$\alpha$}}1 {β}{{$\beta$}}1
+             {γ}{{$\gamma$}}1 {θ}{{$\theta$}}1 {λ}{{$\lambda$}}1
+             {ξ}{{$\xi$}}1 {ρ}{{$\rho$}}1 {σ}{{$\sigma$}}1
+             {χ}{{$\chi$}}1 {ε}{{$\epsilon$}}1 {Δ}{{$\Delta$}}1
+             {π}{{$\pi$}}1 {²}{{\textsuperscript{2}}}1
+}
+
+\lstdefinestyle{outputstyle}{
+    basicstyle=\ttfamily\footnotesize,
+    backgroundcolor=\color{codebg!50},
+    frame=single,
+    framesep=4pt,
+    rulecolor=\color{gray!20},
+    breaklines=true,
+    breakatwhitespace=false,
+    postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+    showstringspaces=false,
+    tabsize=4,
+    upquote=true,
+    literate={—}{{--}}1 {–}{{-}}1 {≈}{{$\approx$}}1 {≥}{{$\geq$}}1
+             {≤}{{$\leq$}}1 {α}{{$\alpha$}}1 {β}{{$\beta$}}1
+             {γ}{{$\gamma$}}1 {θ}{{$\theta$}}1 {λ}{{$\lambda$}}1
+             {ξ}{{$\xi$}}1 {ρ}{{$\rho$}}1 {σ}{{$\sigma$}}1
+             {χ}{{$\chi$}}1 {ε}{{$\epsilon$}}1 {Δ}{{$\Delta$}}1
+             {π}{{$\pi$}}1 {²}{{\textsuperscript{2}}}1
+}
+
+\onehalfspacing
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace*{6cm}
+    
+    {\Huge\bfseries Algorithmic Collusion in\\Financial Markets\par}
+    \vspace{1cm}
+    
+    {\Large Q-Learning Speculators in a Kyle Model with\\Information-Insensitive Investors\par}
+    \vspace{5cm}
+    
+    {\Large\bfseries Clemente Esquinas Coves\par}
+    \vspace{0.5cm}
+    
+    {\large May 2026\par}
+    
+    \vfill
+    
+\end{titlepage}
+
+% -------------------- SECTIONS --------------------
+
+\section{Introduction}
+
+The rapid adoption of autonomous, model-free algorithms in financial
+markets has raised a concern: can self-interested algorithms
+learn to collude without explicit communication or pre-programmed
+intent? Recent work by \citet{Dou2025} suggests that the answer is yes, at
+least in controlled settings that preserve the essential
+informational structure of securities trading. This project revisits
+their framework, first characterizing the theoretical benchmarks
+analytically and then assessing whether Q-learning speculators trading
+against one another converge to collusive outcomes. The model extends
+the canonical \citet{Kyle1985} setup with multiple symmetric informed
+speculators trading in parallel and a continuum of
+information-insensitive investors who trade mechanically against the
+price; the friction introduced by the latter is what opens the door to
+sustainable collusion when present.
+
+The report proceeds in three parts. Section~3 derives the linear Nash
+and cartel equilibria, yielding closed-form expressions for trading
+intensity $\chi$, price impact $\lambda$, and per-speculator profit at
+$\xi = 0$, and shows that the cartel earns higher per-speculator profit
+than Nash for $I \geq 2$. Section~4 develops the market-quality
+analysis: liquidity $\mathcal{L} = 1/\lambda$, price informativeness
+$\mathcal{I}$, and noise-trader losses $W_N$, with comparative statics
+in $I$ at $\xi = 0$ and $\xi = 500$, and a discussion of the effective
+number of insiders $I^*$. Section~5 implements the Q-learning protocol
+of \citet{Dou2025}, measures the collusion index $\Delta_\chi$ in both
+regimes, and uses a noise-shock impulse response analysis to
+distinguish collusion sustained by price-trigger strategies from
+collusion sustained by over-pruning bias.
+
+\section{Model}
+
+Consider a repeated market for a risky asset with fundamental value 
+$v_t \sim \mathcal{N}(\bar{v}, \sigma_v^2)$, drawn independently each period. 
+There are four types of participants:
+
+\begin{enumerate}
+    \item \textbf{Informed speculators.} There are $I \geq 1$ symmetric informed speculators. 
+    Each speculator $i$ observes $v_t$ at the beginning of period $t$ and submits a market order $x_{i,t}$. 
+    Speculator $i$'s profit in period $t$ is
+    \[
+    \boxed{\pi_{i,t} = (v_t - p_t)x_{i,t}}.
+    \]
+
+    \item \textbf{Noise trader.} A noise trader submits orders 
+    $u_t \sim \mathcal{N}(0, \sigma_u^2)$, independent of $v_t$ and across periods.
+
+    \item \textbf{Information-insensitive investors.} Information-insensitive investors have aggregate demand
+    \begin{equation}
+        \boxed{z_t = -\xi (p_t - \bar{v}), \quad \xi \geq 0}.
+    \end{equation}
+    
+    When $\xi = 0$ the model reduces to the standard Kyle framework. 
+    When $\xi > 0$, these investors buy when the price is below $\bar{v}$ 
+    and sell when it is above, without inferring information from prices.
+
+    \item \textbf{Market maker.} The market maker observes the total order flow 
+    \[
+    \boxed{y_t = \sum_{i=1}^I x_{i,t} + u_t}
+    \]
+    and the information-insensitive investor demand $z_t$. 
+    The market maker sets the price to minimize 
+    a weighted combination of pricing errors and inventory costs:
+    \begin{equation}
+        \boxed{p_t = \arg\min_p \ \theta \big(p - \mathbb{E}[v_t \mid y_t]\big)^2 + (y_t + z_t)^2},
+        \label{mm_opt}
+    \end{equation}
+    where $\theta > 0$ governs the relative weight on price discovery.
+    
+    The resulting linear pricing rule takes the form
+    \begin{equation}
+        \boxed{p_t = \bar{v} + \lambda y_t}.
+        \label{pricingrule}
+    \end{equation}
+\end{enumerate}
+
+\section{Equilibrium Analysis}
+\subsection{Pricing Rule}
+To derive the pricing rule, we solve the market maker's optimization problem (\ref{mm_opt}) by minimizing the following expression with respect to $p$:
+\[
+X(p)=\theta(p-\mathbb{E}[v_t\mid y_t])^2+(y_t-\xi(p-\bar{v}))^2.
+\]
+To find the optimal price, we differentiate $X$ with respect to $p$ and set it to zero:
+\[
+\frac{dX}{dp}=2\theta(p^*-\mathbb{E}[v_t\mid y_t])-2\xi(y_t-\xi(p^*-\bar{v}))=0\iff
+\]
+\[
+\iff \theta p^*-\theta\mathbb{E}[v_t\mid y_t]-\xi y_t+\xi^2p^*-\xi^2\bar{v}=0\iff p^*=\frac{\xi^2 \bar{v}}{\theta + \xi^2}+\frac{\xi y_t}{\theta + \xi^2}+\frac{\theta \mathbb{E}[v_t\mid y_t]}{\theta + \xi^2}.
+\]
+Now, by assumption, $v_t=\bar{v}+\gamma y_t+\varepsilon_t$, where $\gamma=\mathbb{E}[v_t-\bar{v}\mid y_t]$ is the regression coefficient of $v_t$ on $y_t$, and $\varepsilon_t$ is uncorrelated with $y_t$. Therefore:
+\[
+\mathbb{E}[v_t\mid y_t]=\mathbb{E}[\bar{v}\mid y_t]+\gamma \mathbb{E}[y_t\mid y_t]+\mathbb{E}[\varepsilon_t\mid y_t]=\bar{v}+\gamma y_t,
+\]
+since $\bar{v}$ is a constant, $y_t$ is $y_t-$known and $\varepsilon_t$ is the residual of the regression which must have expectation zero. Also, $\mathbb{E}[\varepsilon_t\mid y_t]=\mathbb{E}[\varepsilon_t]$ because normality makes uncorrelatedness equivalent to independence: $y_t$ is a linear combination of $v_t$ and $u_t$ (both Gaussian and independent), and $\varepsilon_t$ is also a linear combination of $v_t$ and $u_t$, so $(\varepsilon_t,y_t)$ is jointly normal.
+
+Hence, we get:
+\[
+p^*=\frac{\xi^2 \bar{v}}{\theta + \xi^2}+\frac{\xi y_t}{\theta + \xi^2}+\frac{\theta (\bar{v}+\gamma y_t)}{\theta + \xi^2}=\bar{v}+\frac{\gamma \theta+\xi}{\theta+\xi^2}y_t=\bar{v}+\lambda y_t.
+\]
+Additionally:
+\[
+\frac{d^2X}{dp^2}=2\theta+2\xi^2>0,
+\]
+which confirms $p^*$ achieves a minimum. This yields the pricing rule (\ref{pricingrule}).
+
+
+\subsection{Nash Equilibrium}
+In the context of this model, a Nash equilibrium is a symmetric strategy such that no 
+speculator can increase their expected profit by unilaterally deviating, taking the 
+strategies of all other speculators as given. Here we derive speculator 
+$i$'s best response and impose symmetry to characterize the Nash equilibrium.
+
+Suppose each speculator $i$ uses a linear strategy $x_{i,t}=\chi_i(v_t-\bar{v})$. 
+Speculator $i$'s profit in period $t$ is therefore $\pi_{i,t}=(v_t-p_t)\chi_i(v_t-\bar{v})$. Substituting the pricing rule (\ref{pricingrule}):
+\[
+\pi_{i,t}=(v_t-\bar{v}-\lambda y_t)\chi_i(v_t-\bar{v}).
+\]
+Now, fixing the strategies of all speculators $j\neq i$ at intensity $\chi$, we obtain $y_t=(I-1)\chi(v_t-\bar{v})+\chi_i(v_t-\bar{v})+u_t.$ Substituting into the expression for $\pi_{i,t}$:
+\[
+\pi_{i,t}=\chi_i(v_t-\bar{v})\left(v_t-\bar{v}-\lambda(\chi(I-1)(v_t-\bar{v})+\chi_i(v_t-\bar{v})+u_t)\right).
+\]
+Expanding the expression for $\pi_{i,t}$:
+\[
+\pi_{i,t}=\chi_i(v_t-\bar{v})^2-\lambda \chi_i(v_t-\bar{v})\left[\chi(I-1)(v_t-\bar{v})+u_t\right]-\lambda \chi_i^2(v_t-\bar{v})^2=
+\]
+\[
+=(v_t-\bar{v})^2\left[\chi_i-\lambda\chi_i\chi(I-1)-\lambda \chi_i^2\right]-\lambda \chi_i(v_t-\bar{v})u_t.
+\]
+The best response is given by the expected profit $P(\lambda,\chi,\chi_i)$ conditioned 
+on the fundamental value of the risky asset at time $t$, so:
+\[
+P(\lambda,\chi,\chi_i)=\mathbb{E}[\pi_{i,t}(\lambda, \chi,\chi_i)\mid v_t]=(v_t-\bar{v})^2\left[\chi_i-\lambda \chi_i\chi (I-1)-\lambda \chi_i^2\right].
+\]
+This last equality is due to $(v_t-\bar{v})$ being $v_t-$known and 
+$\mathbb{E}[(v_t-\bar{v})u_t\mid v_t]=(v_t-\bar{v})\mathbb{E}[u_t]=0$ 
+($u_t$ is independent of $v_t$). Taking the first order condition of $P(\lambda,\chi,\chi_i)$ with respect to $\chi_i$ 
+(where we assume $\lambda>0$, as will be verified below):
+\[
+\frac{\partial P}{\partial \chi_i}=(v_t-\bar{v})^2\left[1-\lambda \chi(I-1)-2\lambda\chi_i\right]=0\iff 1-\lambda \chi(I-1)-2\lambda\chi_i^*=0
+\]
+\[
+\iff 2\lambda \chi_i^*=1-\lambda \chi(I-1)\iff \chi_i^*=\frac{1}{2\lambda}-\frac{\chi(I-1)}{2}.
+\]
+
+Lastly, imposing the symmetry of the Nash equilibrium condition $\chi_i=\chi$:
+\[
+\chi^N=\frac{1}{2\lambda^N}-\frac{\chi^N(I-1)}{2}\iff \chi^N\left(1+\frac{I-1}{2}\right)=\frac{1}{2\lambda^N}\iff
+\]
+\begin{equation}
+    \chi^N=\frac{1}{(I+1)\lambda^N},
+\end{equation}
+which is the first condition of the Nash equilibrium.
+
+From the definition of $\lambda$:
+\begin{equation}
+    \lambda^N=\frac{\theta \gamma^N+\xi}{\theta+\xi^2}.
+\end{equation}
+
+Since $\gamma$ is the regression coefficient of $v_t$ on $y_t$:
+\begin{equation}
+    \gamma=\frac{\text{Cov}(v_t,y_t)}{\text{Var}(y_t)}.
+\end{equation}
+In this equilibrium, $y_t=I\chi^N(v_t-\bar{v})+u_t$, hence:
+\[
+\text{Cov}(v_t,y_t)=\text{Cov}(v_t,I\chi^N(v_t-\bar{v})+u_t)=\text{Cov}(v_t,I\chi^N v_t-I\chi^N \bar{v})=I\chi^N\text{Var}(v_t)=I\chi^N \sigma_v^2,
+\]
+since $u_t$ is independent of $v_t$ and $\bar{v}$ is a constant. Note that $\chi^N>0$ 
+(speculators buy when $v_t>\bar{v}$ and sell when $v_t<\bar{v}$), therefore $\gamma>0$, 
+which in turn implies $\lambda>0$, confirming our earlier assumption. Furthermore:
+\[
+\frac{\partial^2 P}{\partial \chi_i^2}=(v_t-\bar{v})^2(-2\lambda)<0,
+\]
+so the value we obtained for $\chi^N$ was indeed a maximum.
+
+We now compute $\text{Var}(y_t)$:
+\[
+\text{Var}(y_t)=\text{Var}(I\chi^N(v_t-\bar{v})+u_t)=\text{Var}(I\chi^N v_t-I\chi^N \bar{v}+u_t)=\text{Var}(I\chi^N v_t+u_t)=I^2(\chi^N)^2\sigma_v^2+\sigma_u^2.
+\]
+Consequently:
+\begin{equation}
+    \gamma^N=\frac{I\chi^N \sigma_v^2}{I^2(\chi^N)^2\sigma_v^2+\sigma_u^2}=\frac{I\chi^N}{(I\chi^N)^2+(\sigma_u/\sigma_v)^2}.
+\end{equation}
+Finally, we derive the expected per-speculator profit. Substituting $p_t=\bar{v}+\lambda^N y_t$ 
+and $x_{i,t}=\chi^N(v_t-\bar{v})$ into $\pi_{i,t}=(v_t-p_t)x_{i,t}$:
+\[
+\pi_{i,t}=\chi^N(v_t-\bar{v})(v_t-\bar{v}-\lambda^N y_t).
+\]
+Taking unconditional expectation and substituting $y_t = I\chi^N(v_t-\bar{v})+u_t$:
+\[
+\pi^N=\mathbb{E}\left[\chi^N(v_t-\bar{v})(v_t-\bar{v}-\lambda^N(I\chi^N(v_t-\bar{v})+u_t))\right]=\chi^N(1-\lambda^NI\chi^N)\mathbb{E}[(v_t-\bar{v})^2],
+\]
+since $(v_t-\bar{v})$ is independent of $u_t$ and $\mathbb{E}[u_t]=0$. This gives:
+\begin{equation}
+    \pi^N=(1-\lambda^NI\chi^N)\chi^N\sigma_v^2.
+\end{equation}
+
+
+
+\subsection{Cartel Equilibrium}
+Now suppose all $I$ speculators form a cartel that maximizes the total profit of the group, namely, they all coordinate on the same intensity $\chi^M$ that maximizes:
+\[
+\sum_{i=1}^I\pi_{i,t}=(v_t-p_t)I\chi^M(v_t-\bar{v})
+\]
+Substituting $p_t=\bar{v}+\lambda^M y_t$ and $y_t=I\chi^M(v_t-\bar{v})+u_t$:
+\[
+\sum_{i=1}^I\pi_{i,t}=I\chi^M(v_t-\bar{v})^2-I\lambda^M\chi^M(v_t-\bar{v})(I\chi^M(v_t-\bar{v})+u_t)
+\]
+Taking the conditional expectation on $v_t$:
+\[
+Q:=\mathbb{E}\left[\sum_{i=1}^I\pi_{i,t}\mid v_t\right]=I\chi^M(v_t-\bar{v})^2-I^2\lambda^M(\chi^M)^2(v_t-\bar{v})^2-I\lambda^M\chi^M(v_t-\bar{v})\mathbb{E}[u_t\mid v_t]=
+\]
+\[
+=I\chi^M(v_t-\bar{v})^2-I^2\lambda^M(\chi^M)^2(v_t-\bar{v})^2
+\]
+since $u_t$ is independent of $v_t$ and $\mathbb{E}[u_t]=0$.
+
+Taking the first order condition with respect to $\chi^M$:
+\[
+\frac{\partial Q}{\partial \chi^M}=(v_t-\bar{v})^2\left[I-2I^2\lambda^M\chi^M\right]=0\iff
+\]
+\begin{equation}
+    \chi^M=\frac{1}{2I\lambda^M}.
+\end{equation}
+Moreover (where $\lambda^M>0$ is verified below):
+\[
+\frac{\partial^2 Q}{\partial (\chi^M)^2}=(v_t-\bar{v})^2(-2I^2\lambda^M)<0,
+\]
+so it is indeed a maximum.
+
+From the definition of $\lambda$:
+\begin{equation}
+    \lambda^M=\frac{\theta \gamma^M+\xi}{\theta+\xi^2}.
+\end{equation}
+The derivations of $\gamma^M$ and $\pi^M$ follow analogously to the Nash case, replacing $\chi^N$ and $\lambda^N$ with $\chi^M$ and $\lambda^M$. Note that $\lambda^M>0$ for the same reason as $\lambda^N$. Consequently:
+\begin{equation}
+    \gamma^M=\frac{I\chi^M}{(I\chi^M)^2+(\sigma_u/\sigma_v)^2},
+\end{equation}
+and
+\begin{equation}
+    \pi^M=(1-\lambda^MI\chi^M)\chi^M\sigma_v^2.
+\end{equation}
+
+\subsection{Closed Forms and Numerical Results}
+When $\xi=0$, the expression for $\lambda^N$ simplifies to $\lambda^N = \gamma^N$. 
+Substituting into the expression for $\chi^N$ and rearranging:
+\[
+\chi^N = \frac{1}{(I+1)\gamma^N} = \frac{1}{I+1}\cdot\frac{(I\chi^N)^2+(\sigma_u/\sigma_v)^2}{I\chi^N}.
+\]
+Multiplying both sides by $(I+1)\chi^N$:
+\[
+(I+1)I(\chi^N)^2 = I^2(\chi^N)^2 + \frac{\sigma_u^2}{\sigma_v^2} \implies (\chi^N)^2 = \frac{\sigma_u^2}{I\sigma_v^2},
+\]
+and therefore:
+\begin{equation}
+    \chi^N = \frac{\sigma_u}{\sqrt{I}\sigma_v}.
+    \label{nash_chi}
+\end{equation}
+Substituting into $\lambda^N = \gamma^N = \frac{I\chi^N}{(I\chi^N)^2+(\sigma_u/\sigma_v)^2}$:
+\[
+\lambda^N = \frac{I\cdot\frac{\sigma_u}{\sqrt{I}\sigma_v}}{\left(\frac{I\sigma_u}{\sqrt{I}\sigma_v}\right)^2+\left(\frac{\sigma_u}{\sigma_v}\right)^2} = \frac{\frac{\sqrt{I}\sigma_u}{\sigma_v}}{\frac{I\sigma_u^2}{\sigma_v^2}+\frac{\sigma_u^2}{\sigma_v^2}} = \frac{\frac{\sqrt{I}\sigma_u}{\sigma_v}}{\frac{(I+1)\sigma_u^2}{\sigma_v^2}} = \frac{\sqrt{I}\sigma_u}{\sigma_v}\cdot\frac{\sigma_v^2}{(I+1)\sigma_u^2},
+\]
+and therefore:
+\begin{equation}
+    \lambda^N = \frac{\sqrt{I}\sigma_v}{(I+1)\sigma_u}.
+    \label{lambda_N}
+\end{equation}
+The cartel derivation is analogous, using $\chi^M = \frac{1}{2I\lambda^M}$ in place of 
+$\chi^N = \frac{1}{(I+1)\lambda^N}$. Substituting $\lambda^M = \gamma^M$ at $\xi=0$:
+\[
+\chi^M = \frac{1}{2I}\cdot\frac{(I\chi^M)^2+(\sigma_u/\sigma_v)^2}{I\chi^M}.
+\]
+Multiplying both sides by $2I^2\chi^M$:
+\[
+2I^2(\chi^M)^2 = I^2(\chi^M)^2 + \frac{\sigma_u^2}{\sigma_v^2} \implies I^2(\chi^M)^2 = \frac{\sigma_u^2}{\sigma_v^2},
+\]
+and therefore:
+\begin{equation}
+    \chi^M = \frac{\sigma_u}{I\sigma_v}.
+    \label{cartel_chi}
+\end{equation}
+Substituting into $\lambda^M = \gamma^M = \frac{I\chi^M}{(I\chi^M)^2+(\sigma_u/\sigma_v)^2}$:
+\[
+\lambda^M = \frac{I\cdot\frac{\sigma_u}{I\sigma_v}}{\left(\frac{\sigma_u}{\sigma_v}\right)^2+\left(\frac{\sigma_u}{\sigma_v}\right)^2} = \frac{\frac{\sigma_u}{\sigma_v}}{2\cdot\frac{\sigma_u^2}{\sigma_v^2}} = \frac{\sigma_v}{2\sigma_u},
+\]
+and therefore:
+\begin{equation}
+    \lambda^M = \frac{\sigma_v}{2\sigma_u}.
+\end{equation}
+Now, since for $I\ge 2$, $\frac{1}{\sqrt{I}}>\frac{1}{I}$, we have $\chi^N>\chi^M$ if we compare (\ref{nash_chi}) and (\ref{cartel_chi}).
+
+Substituting the closed-form expressions into $\pi^N=(1-\lambda^N I\chi^N)\chi^N\sigma_v^2$:
+\[
+\pi^N = \left(1 - \frac{\sqrt{I}\sigma_v}{(I+1)\sigma_u}\cdot I\cdot\frac{\sigma_u}{\sqrt{I}\sigma_v}\right)\frac{\sigma_u}{\sqrt{I}\sigma_v}\sigma_v^2 = \left(1 - \frac{I}{I+1}\right)\frac{\sigma_u\sigma_v}{\sqrt{I}},
+\]
+and therefore:
+\begin{equation}
+    \pi^N = \frac{\sigma_u\sigma_v}{\sqrt{I}(I+1)}.
+\end{equation}
+Similarly, substituting into $\pi^M=(1-\lambda^M I\chi^M)\chi^M\sigma_v^2$:
+\[
+\pi^M = \left(1 - \frac{\sigma_v}{2\sigma_u}\cdot I\cdot\frac{\sigma_u}{I\sigma_v}\right)\frac{\sigma_u}{I\sigma_v}\sigma_v^2 = \left(1-\frac{1}{2}\right)\frac{\sigma_u\sigma_v}{I},
+\]
+and therefore:
+\begin{equation}
+    \pi^M = \frac{\sigma_u\sigma_v}{2I}.
+\end{equation}
+To show $\pi^M>\pi^N$ for $I\ge 2$, we need:
+\[
+\frac{\sigma_u\sigma_v}{2I}>\frac{\sigma_u\sigma_v}{\sqrt{I}(I+1)} \iff \sqrt{I}(I+1)>2I \iff I^{3/2}+\sqrt{I}>2I.
+\]
+Defining $f(I)=I^{3/2}+\sqrt{I}-2I$ and factoring out $\sqrt{I}$:
+\[
+f(I)=\sqrt{I}(I+1-2\sqrt{I})=\sqrt{I}(\sqrt{I}-1)^2.
+\]
+Since $\sqrt{I}>0$ and $(\sqrt{I}-1)^2\ge 0$ for all $I$, we have $f(I)\ge 0$, with equality only at $I=1$. Therefore $f(I)>0$ for all $I\ge 2$, which proves $\pi^M>\pi^N$.
+
+When $\xi=0$, information-insensitive investors are absent and the model reduces to the standard \citet{Kyle1985} framework. In the Nash equilibrium, each speculator trades aggressively on their private signal, taking the strategies of others as given. However, 
+since the market maker sets a price proportional to total order flow $y_t$, the collective 
+aggressive trading drives prices closer to the fundamental value, reducing the profit 
+margin $(v_t-p_t)$ for every speculator. The cartel internalizes this effect by 
+coordinating on a lower trading intensity $\chi^M<\chi^N$, which keeps prices less 
+informative and preserves larger profit margins. As a result, even though each cartel member trades less, the per-speculator profit is 
+higher under the cartel than in the Nash equilibrium for $I\ge 2$, highlighting the 
+incentive for speculators to collude.
+
+To further illustrate these results numerically, a Python script was implemented to 
+compute $\lambda^N$, $\chi^N$, $\pi^N$ and $\lambda^M$, $\chi^M$, $\pi^M$ for $\xi=0$, 
+$\sigma_v=1$, $\sigma_u=0.1$, and $I=1,2,\ldots,10$ using the closed-form expressions 
+derived above. Figure \ref{fig:lambda_pi_ratio} displays the resulting plots.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\textwidth]{lambda_pi_ratio_plots.pdf}
+    \caption{Price impact $\lambda$, per-speculator profits $\pi$, and profit ratio 
+    $\pi^M/\pi^N$ under Nash and cartel equilibria, as functions of the number of 
+    speculators $I$, for $\xi=0$, $\sigma_v=1$, $\sigma_u=0.1$.}
+    \label{fig:lambda_pi_ratio}
+\end{figure}
+
+The plots show that $\lambda^M$ is constant in $I$ while $\lambda^N$ decreases, 
+reflecting the fact that competition among Nash speculators reduces price impact, whereas 
+the cartel maintains a fixed level of market illiquidity regardless of group size. Both 
+$\pi^N$ and $\pi^M$ decrease in $I$, as the per-speculator share of total profits 
+diminishes with more participants. However, $\pi^N$ falls strictly faster than $\pi^M$: 
+in the Nash equilibrium, each speculator cannot coordinate to avoid the competition 
+effect, so increasing $I$ undermines individual profits through the price impact of rivals. 
+The cartel internalizes this competition effect, limiting total order 
+flow and preserving profit margins more effectively. As a result, the ratio $\pi^M/\pi^N$ 
+is strictly increasing in $I$, confirming that the incentive to collude grows with the 
+number of speculators: the larger the group, the greater the gain from coordination 
+relative to competitive trading.
+
+\section{Market Quality}
+Market quality refers to how well a financial market fulfills its main functions: 
+incorporating information into prices, enabling trade at low cost, and limiting the 
+exploitation of uninformed participants. In this model, noise traders represent 
+liquidity traders, investors who trade for reasons unrelated to the fundamental 
+value $v_t$, such as portfolio rebalancing or hedging needs. We measure market quality through three indicators:
+\begin{itemize}
+    \item \textbf{Price informativeness:} $\mathcal{I}=\frac{1}{\text{Var}(v_t\mid p_t)}=\frac{I^2\chi^2\sigma_v^2+\sigma_u^2}{\sigma_v^2\sigma_u^2}$, which measures how accurately the market price reflects the fundamental value $v_t$. A higher $\mathcal{I}$ indicates that prices are more informative.
+    \item \textbf{Market liquidity:} $\mathcal{L}=\frac{1}{\lambda}$, which measures how cheaply traders can execute orders without moving prices. A higher $\mathcal{L}$ indicates a more liquid market.
+    \item \textbf{Noise-trader losses:} $W_N=\lambda \sigma_u^2$, which measures the average losses incurred by noise traders due to adverse selection.
+\end{itemize}
+
+For $\xi=0$, we see from (\ref{lambda_N}) that as $I$ increases, $\lambda^N$ decreases 
+(strictly for $I\ge 2$), since if we define $f(I)=\frac{\sqrt{I}}{I+1}$:
+\[
+f'(I)=\frac{\frac{1}{2\sqrt{I}}(I+1)-\sqrt{I}}{(I+1)^2}=\frac{-I+1}{2\sqrt{I}(I+1)^2}<0\quad \text{for }I\ge 2,
+\]
+and $f'(1)=0$.
+The price informativeness in the Nash equilibrium is obtained by substituting 
+$\chi^N = \frac{\sigma_u}{\sqrt{I}\sigma_v}$ into the expression for $\mathcal{I}$:
+\[
+\mathcal{I}^N=\frac{I^2(\chi^N)^2\sigma_v^2+\sigma_u^2}{\sigma_v^2\sigma_u^2}=
+\frac{I^2\cdot\frac{\sigma_u^2}{I\sigma_v^2}\cdot\sigma_v^2+\sigma_u^2}{\sigma_v^2\sigma_u^2}=
+\frac{I\sigma_u^2+\sigma_u^2}{\sigma_v^2\sigma_u^2}=\frac{I+1}{\sigma_v^2},
+\]
+which is strictly increasing in $I$ for all $I\ge 1$. The noise-trader losses in the
+Nash equilibrium are
+\[
+W_N^N=\lambda^N\sigma_u^2=\frac{\sqrt{I}\sigma_v}{(I+1)\sigma_u}\cdot\sigma_u^2=
+\sigma_u\sigma_v\cdot f(I),
+\]
+which is decreasing in $I$ (strictly for $I\ge 2$) by the same argument as for $\lambda^N$.
+
+Substituting $\chi^M = \frac{\sigma_u}{I\sigma_v}$ into the same expressions gives
+\[
+\mathcal{I}^M = \frac{2}{\sigma_v^2}, \qquad W_N^M = \frac{\sigma_u\sigma_v}{2},
+\]
+both constant in $I$. The cartel therefore locks in a fixed level of price opacity 
+and noise-trader exploitation regardless of group size, while the Nash equilibrium 
+delivers progressively higher liquidity, more informative prices, and lower 
+noise-trader losses as $I$ grows.
+
+To illustrate these results numerically, a Python script computes $\lambda^N$, 
+$\lambda^M$, $\mathcal{I}^N$, $\mathcal{I}^M$, $W_N^N$, and $W_N^M$ for $\xi=0$, 
+$\sigma_v=1$, $\sigma_u=0.1$, and $I=1,2,\ldots,10$. Figure \ref{fig:market_quality} 
+displays the resulting plots.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{market_quality_plots.pdf}
+    \caption{Price impact $\lambda$, price informativeness $\mathcal{I}$, and 
+    noise-trader losses $W_N$ under Nash and cartel equilibria, as functions of 
+    the number of speculators $I$, for $\xi=0$, $\sigma_v=1$, $\sigma_u=0.1$.}
+    \label{fig:market_quality}
+\end{figure}
+
+The economic interpretation of the figure is the following: the constancy of the cartel 
+curves reflects that the aggregate response coefficient $I\chi^M = \sigma_u/\sigma_v$ 
+is independent of group size: the cartel simply divides a fixed monopolist trading 
+volume equally among its members. Competition, by contrast, drives each Nash 
+speculator to trade more strongly on their signal, increasing the informational 
+content of total order flow relative to noise. The result is a strict welfare 
+ranking: for every $I \geq 2$, the Nash equilibrium delivers lower price impact, 
+more informative prices, and smaller noise-trader losses than the cartel, and the 
+gap widens as $I$ grows. This confirms within the \citet{Dou2025} framework the 
+result of \citet{Subrahmanyam1991} that competition among risk-neutral informed 
+traders monotonically improves market quality (Lemma 2(i)).
+
+For $\xi > 0$, the equilibrium quantities $\chi^N$, $\lambda^N$, $\chi^M$, and $\lambda^M$ 
+cannot be solved in closed form\label{par:numerical_solver} and must instead be obtained numerically as the solution 
+to a fixed-point problem. Specifically, the Nash equilibrium conditions in equations (4), (5), and (7) can be reduced to 
+finding the root of:
+\[
+F(\chi) = \chi - \frac{1}{(I+1)\lambda(\gamma(\chi))}, \quad \text{where} \quad 
+\gamma(\chi) = \frac{I\chi}{(I\chi)^2 + (\sigma_u/\sigma_v)^2}, \quad 
+\lambda(\gamma) = \frac{\theta\gamma + \xi}{\theta + \xi^2},
+\]
+and analogously for the cartel, replacing $(I+1)$ with $2I$. A Python script was 
+implemented to find these roots using Brent's method, which is a robust bracketing 
+algorithm that combines bisection, secant, and inverse quadratic interpolation. The 
+bracketing interval $[a, b]$ is determined automatically by expanding the upper bound 
+geometrically until a sign change is detected, which is necessary since for large $\xi$ 
+the equilibrium $\chi$ can be very large. The $\xi = 0$ case was used as a sanity check: 
+the numerical results match the closed-form expressions derived in Section~3 exactly.
+
+Table \ref{tab:numerical} reports the computed equilibrium quantities for $I=2$, 
+$\sigma_v=1$, $\sigma_u=0.1$, $\theta=0.1$, and $\xi \in \{0, 50, 500\}$.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ccccccc}
+\toprule
+$\xi$ & $\chi^N$ & $\lambda^N$ & $\pi^N$ & $\chi^M$ & $\lambda^M$ & $\pi^M$ \\
+\midrule
+$0$   & $0.0707$ & $4.7140$ & $0.0236$ & $0.0500$ & $5.0000$ & $0.0250$ \\
+$50$  & $16.6663$ & $0.0200$ & $5.5554$ & $12.4995$ & $0.0200$ & $6.2498$ \\
+$500$ & $166.6666$ & $0.0020$ & $55.5555$ & $125.0000$ & $0.0020$ & $62.5000$ \\
+\bottomrule
+\end{tabular}
+\caption{Nash and cartel equilibrium quantities for $I=2$, $\sigma_v=1$, 
+$\sigma_u=0.1$, $\theta=0.1$, and $\xi \in \{0, 50, 500\}$.}
+\label{tab:numerical}
+\end{table}
+
+The results show that $\xi$ has a dramatic effect on equilibrium behavior. 
+As $\xi$ increases, trading intensities $\chi^N$ and $\chi^M$ grow roughly in 
+proportion to $\xi$, while price impact $\lambda^N$ and $\lambda^M$ go toward 
+zero. The mechanism works as follows: large $\xi$ means information-insensitive 
+investors absorb most of the order flow, so the market maker's pricing rule becomes insensitive to informed trading, allowing speculators to trade aggressively at little cost. Profits consequently grow by several orders of magnitude relative 
+to the $\xi=0$ case. The absolute gap between $\pi^M$ and $\pi^N$ widens with $\xi$, 
+indicating that information-insensitive investors amplify the gains from collusion. 
+Nevertheless, the cartel always outperforms the Nash equilibrium ($\pi^M > \pi^N$) 
+across all values of $\xi$, confirming that the incentive to collude persists 
+regardless of the presence of information-insensitive investors.
+
+Using the previous numerical solver, we compute $\lambda^N$, 
+$\lambda^M$, $\mathcal{I}^N$, $\mathcal{I}^M$, $W_N^N$, and $W_N^M$ for $\xi=500$, 
+$\theta=0.1$, $\sigma_v=1$, $\sigma_u=0.1$, and $I=1,2,\ldots,10$. The results are 
+displayed in Figure \ref{fig:comp_statics_xi500}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{comparative_statics_xi500.pdf}
+    \caption{Price impact $\lambda$, price informativeness $\mathcal{I}$, and 
+    noise-trader losses $W_N$ under Nash and cartel equilibria as functions of 
+    the number of speculators $I$, for $\xi=500$, $\theta=0.1$, $\sigma_v=1$, 
+    $\sigma_u=0.1$.}
+    \label{fig:comp_statics_xi500}
+\end{figure}
+
+Both $\lambda^N$
+and $\lambda^M$ are of order $0.002$ at $\xi=500$ versus order $5$ at $\xi=0$, a
+collapse of three orders of magnitude. The reason is that the pricing rule
+$\lambda = (\theta\gamma + \xi) / (\theta + \xi^2)$ is dominated by the $\xi^2$ term
+in the denominator for large $\xi$, giving $\lambda \approx 1/\xi = 0.002$. The
+market maker becomes insensitive to information and prices primarily off the
+liquidity parameter $\xi$, so insiders adjust $\chi$ but prices barely respond. The
+left panel of Figure \ref{fig:comp_statics_xi500} shows $\lambda^N$ decreasing and
+$\lambda^M$ flat, but the variations are of order $10^{-10}$ around a base of
+$0.002$, both equal $0.002000$ to six decimal places for every $I$. The same
+mechanism flattens noise-trader losses $W_N = \lambda \sigma_u^2$, which sit at
+$2 \times 10^{-5}$ with variations of order $10^{-12}$.
+
+The informativeness gap behaves differently. At $I=10$, the ratio
+$\mathcal{I}^N/\mathcal{I}^M$ is roughly $3.3$ at $\xi=500$, against $5.5$ at
+$\xi=0$: information-insensitive investors close part of the gap because the cartel also trades more harshly in this regime. In absolute terms, both $\mathcal{I}^N$ and $\mathcal{I}^M$ are orders of magnitude larger at $\xi=500$ than at $\xi=0$,
+reflecting the much higher trading intensity of all speculators. The welfare ranking is the same: competition delivers substantially more informative prices than collusion, but the margin is smaller.
+
+We now turn to a complementary way of quantifying the market impact of collusion: 
+the effective number of insiders $I^*$, defined as the value such that 
+$\lambda^N(I^*) = \lambda^M(I)$. That is, $I^*$ is the number of Nash speculators 
+needed to replicate the price impact of a cartel with $I$ speculators. For $\xi=0$, 
+using the closed-form expressions for $\lambda^N$ and $\lambda^M$:
+\[
+\lambda^N(I^*) = \frac{\sqrt{I^*}\,\sigma_v}{(I^*+1)\sigma_u}, \qquad 
+\lambda^M(I) = \frac{\sigma_v}{2\sigma_u}.
+\]
+Setting these equal and canceling $\sigma_v/\sigma_u$ (note that $\lambda^M$ doesn't depend on $I$):
+\[
+\frac{\sqrt{I^*}}{I^*+1} = \frac{1}{2} \iff 2\sqrt{I^*} = I^*+1 \iff 
+4I^* = (I^*+1)^2 \iff I^{*2} - 2I^* + 1 = 0 \iff (I^*-1)^2 = 0,
+\]
+which has the unique solution $I^*=1$, regardless of $I$, $\sigma_v$, and $\sigma_u$.
+This means that a cartel of $I$ speculators generates exactly the same price impact 
+as a Nash equilibrium with a single speculator, i.e. a monopolist. The cartel therefore 
+trades as conservatively as a monopolist regardless of its size, which makes 
+intuitive sense: the cartel maximizes joint profits, and adding more members to the cartel does not change its 
+aggregate trading behavior, it simply divides the same monopolist trading volume among more participants.
+
+We now extend the analysis to $\xi=500$, where closed-form expressions are no
+longer available. For each $I \in \{2, 3, 5\}$ we compute $\lambda^M(I)$ using
+the equilibrium solver and find $I^*$ such that $\lambda^N(I^*) = \lambda^M(I)$
+via Brent's method, treating $I^*$ as the unknown. Uniqueness on the
+interval $[0.01, 10]$ is verified by a sign-change check on a $2{,}000$-point
+grid.
+
+For $\theta=0.1$, $\sigma_v=1$, $\sigma_u=0.1$, the solver returns $I^* = 1$ in
+all three cases, with a unique solution each time. This is the same answer as
+at $\xi = 0$, and it is not an accident: the cartel FOC $\chi^M = 1/(2I\lambda^M)$
+implies that the aggregate cartel coefficient $I\chi^M$ depends only on $\lambda^M$,
+which makes $\gamma^M$ and hence $\lambda^M$ constant in $I$. Combined with the
+identity $\lambda^N(1) = \lambda^M(1)$, this gives $\lambda^N(1) = \lambda^M(I)$ for every
+$I$, so $I^* = 1$ exactly.
+
+Thus, the role of information-insensitive investors is not to change the fact that a cartel of any size trades like a monopolist; it is to
+compress the level of price impact at which it happens. At $\xi = 0$,
+$\lambda^N(1) = \lambda^M(I) = \sigma_v/(2\sigma_u) = 5$. At $\xi = 500$, the
+common value collapses to $\lambda \approx 1/\xi = 2 \times 10^{-3}$, three orders
+of magnitude smaller. Information-insensitive investors moderate the market impact of collusion (prices barely respond to informed order flow
+in either equilibrium) without altering the equivalence between the
+cartel and a monopolist.
+
+
+
+\section{Q-Learning and Algorithmic Collusion}
+
+\subsection{Algorithm Description}
+
+We investigate whether model-free Q-learning algorithms, acting as informed
+speculators, can learn to collude without explicit communication. The
+simulation setup follows \citet{Dou2025}: each speculator $i$ maintains a
+Q-matrix $\hat{Q}_i(s, x)$ indexed by state $s = (p_{t-1}, v_{t-1}, v_t)$
+and action $x$, chooses actions via $\varepsilon$-greedy exploration with
+state-dependent exploration rate $\varepsilon_t(v_k) = e^{-\beta\, t(v_k)}$,
+and updates its Q-matrix according to
+\begin{equation}
+    \hat{Q}_{i,t+1}(s_t, x_{i,t}) = (1-\alpha)\,\hat{Q}_{i,t}(s_t, x_{i,t}) +
+    \alpha\left[\pi_{i,t} + \rho \max_{x'}\hat{Q}_{i,t}(s_{t+1}, x')\right],
+    \label{eq:Qupdate}
+\end{equation}
+with the max taken over the action grid corresponding to $v_{t+1}$. All
+other entries remain unchanged. We use $n_v = 10$ value
+grid points, state-dependent action grids of size $n_x = 15$ and price
+grids of size $n_p = 31$, with bracketing parameter $\iota = 0.1$. Lagged
+prices $p_{t-1}$ are discretised on the price grid corresponding to
+$v_{t-1}$, since they were generated by actions chosen for that value
+state. The Q-matrix is initialised as
+\begin{equation}
+    \hat{Q}_{i,0}(s, x_n) = \frac{1}{(1-\rho)\,n_x} \sum_{x_{-i} \in \mathcal{X}_k}
+    \left[v_k - \left(\bar{v} + \lambda^N(x_n + (I-1)x_{-i})\right)\right] x_n,
+    \label{eq:Qinit}
+\end{equation}
+which is the discounted payoff to speculator $i$ if the other speculators
+randomise uniformly and the noise trader's order is zero, replicated
+across all $(v_{t-1}, p_{t-1})$ slices.
+
+The degree of collusion is measured by
+\begin{equation}
+    \Delta_\chi = \frac{\chi^N - \bar{\chi}^C}{\chi^N - \chi^M},
+    \label{eq:collusion_index}
+\end{equation}
+where $\bar{\chi}^C$ is the average learned trading intensity:
+$\Delta_\chi = 0$ corresponds to Nash, $\Delta_\chi = 1$ to perfect
+cartel. Throughout, we use $\bar{v} = 1$, $\sigma_v = 1$, $\sigma_u = 0.1$,
+$I = 2$, $\rho = 0.95$, $\theta = 0.1$, $\alpha = 0.05$,
+$\beta = 5 \times 10^{-6}$. The discretisation grids depend on $\chi^N$,
+$\chi^M$, and $\lambda^N$ and are recomputed for each value of $\xi$.
+
+\subsection{Simulation Results}
+As a baseline sanity check we ran $I=1$, where $\chi^N=\chi^M=\sigma_u/\sigma_v=0.1$ 
+and the action grid collapses to a single point at every value-grid node 
+($x_k^N=x_k^M$). The simulation returns $\bar\chi^C=0.100000$, matching the 
+closed form exactly.
+
+This should be interpreted as a consistency check rather than evidence 
+of non-trivial strategic learning. When $I=1$, the Nash and cartel order sizes 
+are identical at every value-grid point, so the prescribed action-grid 
+construction becomes degenerate: the interval $[x_k^M - \iota(x_k^N - x_k^M),\ 
+x_k^N + \iota(x_k^N - x_k^M)]$ collapses to a single point when $x_k^N = x_k^M$, 
+making every action on the grid identical. The test confirms that the discretization, state transitions, market-clearing step, and Q-learning updates are implemented coherently.
+
+We now turn to the more interesting case of $I=2$ informed speculators,
+where $\chi^N \neq \chi^M$ and the Q-learning algorithm must make a
+choice between the high Nash intensity and the conservative cartel
+intensity. The closed-form benchmarks at $\xi=0$, $I=2$ are
+$\chi^N = \sigma_u/(\sqrt{2}\sigma_v) \approx 0.0707$,
+$\chi^M = \sigma_u/(2\sigma_v) = 0.05$, and
+$\lambda^N = \sqrt{2}\sigma_v/(3\sigma_u) \approx 4.714$. The action grid is now
+non-degenerate, spanning trading intensities that allow speculators to deviate
+below the cartel level or above the Nash level by a factor of $\iota = 0.1$.
+
+\paragraph{Implementation choice: three update protocols.}
+The protocol can be read in more than one way: each speculator maintains a
+Q-matrix $\hat{Q}_i(s,x)$ (with subscript $i$), yet the speculators are also
+described as sharing the same Q-matrix and update rule. We compare three variants:
+\begin{itemize}
+    \item \textbf{Separate matrices.} Each speculator $i \in \{1, 2\}$
+    maintains its own Q-matrix $\hat{Q}_i$, identically initialized via
+    Eq.~(\ref{eq:Qinit}) and updated only by its own experience according to
+    Eq.~(\ref{eq:Qupdate}). Symmetry between agents emerges endogenously
+    from identical dynamics rather than from enforcing a single shared matrix.
+    This is the obvious interpretation and what the paper uses.
+    \item \textbf{Shared matrix, sequential updates.} A single Q-matrix is
+    consulted by both agents. Each period, both agents' updates are applied
+    to that matrix in sequence. When both agents happen to pick the same
+    $(\text{state}, \text{action})$ cell in the same period, the second update
+    operates on the value already modified by the first, introducing a
+    path-dependence.
+    \item \textbf{Shared matrix, averaged updates.} A single Q-matrix is again
+    used. Targets are computed per agent and grouped by the cell they would
+    update. When multiple agents hit the same cell, their targets are averaged
+    before a single update is applied, making the update order-independent and
+    symmetric across agents.
+\end{itemize}
+The separate-matrices variant is our primary specification; the two
+shared-matrix variants serve as a robustness check on whether the collusive
+outcome is an artifact of any particular update protocol.
+
+We measure convergence of the learned greedy policy rather than of the
+Q-values, which fluctuate at the constant rate $\alpha = 0.05$. The original paper requires every cell's greedy action to remain unchanged for $10^6$ consecutive
+periods, a criterion calibrated for their ensemble of $1{,}000$ sessions of
+length $2 \times 10^7$ to $5 \times 10^{10}$. This is too strict for our
+single-session simulations, so we adopt a softer per-cell variant: at each
+diagnostic checkpoint, we report the fraction of $(s, i)$ cells whose greedy
+action has been unchanged for at least $10^6$ consecutive periods. Combined
+with the trajectory of $\bar{\chi}^C$, this provides a quantitative summary
+of policy stationarity.
+
+Our initial runs at $T = 50 \times 10^6$ training periods revealed that under all three
+protocols the greedy policy was still drifting: the $\bar{\chi}^C$
+trajectory was visibly trending downward, and the fraction of cells
+stable for at least $10^6$ consecutive periods sat between roughly $10\%$
+and $20\%$, indicating that most of the policy was still changing.
+To obtain interpretable estimates we extend the training horizon to
+$T = 500 \times 10^6$ periods.
+
+\paragraph{Measurement of $\bar{\chi}^C$.}
+For each variant we train the Q-learning algorithms for $T = 500 \times 10^6$
+periods, freeze the Q-matrix or matrices, and evaluate the resulting greedy
+policy over an additional $T_{\text{eval}} = 10^5$ periods with exploration
+and learning both turned off. Following \citet[Internet Appendix,
+eq.~(IA.4.4)]{Dou2025}, for each speculator $i$ we run the unrestricted OLS
+regression
+\[
+x_{i,t} = \chi^C_{i,0} + \chi^C_{i,1}\,v_t + \epsilon_t
+\]
+over the $T_{\text{eval}}$ frozen-policy sample, and report
+\[
+\bar{\chi}^C = \frac{1}{I} \sum_{i=1}^{I} \hat{\chi}^C_{i,1}.
+\]
+This slope-based estimator is numerically more stable than the per-period
+ratio $x_{i,t}/(v_t - \bar{v})$, which is sensitive to realisations of $v_t$
+close to $\bar{v}$, and it directly tests whether the learned policy takes
+the theoretically-motivated linear form in $(v_t - \bar{v})$.
+
+\paragraph{Results.}
+Table~\ref{tab:irf_methods} summarises the three runs. All three protocols
+yield substantial collusion, with $\Delta_\chi \in [0.72, 0.92]$, and the
+ordering is
+$\Delta_\chi^{\text{separate}} < \Delta_\chi^{\text{averaged}}
+< \Delta_\chi^{\text{sequential}}$.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lccc}
+        \toprule
+        Method & $\bar{\chi}^C$ & $\Delta_\chi$ &
+        \begin{tabular}{c}Cells stable\\$\geq 10^6$ periods\end{tabular} \\
+        \midrule
+        Separate   & $0.0558$ & $0.720$ & $98.5\%$ \\
+        Sequential & $0.0517$ & $0.919$ & $98.1\%$ \\
+        Averaged   & $0.0520$ & $0.902$ & $98.4\%$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{Learned trading intensity and convergence diagnostic under the
+    three update protocols at $\xi=0$, $I=2$, $T = 500 \times 10^6$. The
+    ``cells stable'' column reports the fraction of $(s,i)$ cells whose
+    greedy action has been unchanged for at least $10^6$ consecutive
+    periods at the end of training.}
+    \label{tab:irf_methods}
+\end{table}
+
+The $\bar{\chi}^C$ trajectories for all three methods stabilize during the
+final $250 \times 10^6$ periods (fluctuations on the order of $10^{-4}$), so the OLS
+estimates are reliable. The per-cell stability metric reaches near $98\%$,
+with $1$-$2\%$ of cells showing ongoing argmax oscillation due to
+near-tied Q-values across adjacent cells; this would
+likely be eliminated under \citet{Dou2025}'s smaller learning rate
+$\alpha = 0.01$, but does not affect our conclusions.
+
+Across all three protocols, the algorithms learn to trade well
+below the Nash intensity and capture between approximately $0.7$ and $0.9$ of
+the distance toward the perfect cartel. This shows that the
+collusive outcome is not an artifact of any particular method, but a feature of Q-learning in this setting. The
+collusive outcome arises without any communication or shared information beyond the Q-learning update rule.
+
+The separate matrices method results in a noticeably lower $\Delta_\chi$
+than the two shared matrix protocols ($0.72$ versus $0.90$-$0.92$). Since the stability is essentially identical ($\sim 98\%$) and
+$\bar{\chi}^C$ has stabilized in all three cases, this gap reflects a
+genuine difference in the learned equilibrium rather than a convergence
+feature. A natural explanation is that shared protocols apply two
+updates per cell per period (either sequential or
+averaged), which effectively doubles the learning rate at cells the two
+agents both visit. Faster Q-value separation then causes the argmax to
+commit more to the action that first gets an advantage during
+the exploration phase. If that action is conservative,
+the shared protocols over-prune more effectively and land closer to
+the cartel.
+
+Moreover, our results are based on single simulation sessions, whereas \citet{Dou2025}
+report ensemble averages across $1{,}000$ independent sessions. Given the
+paper's observation that individual sessions can converge to different
+equilibria due to randomness in exploration, our reported $\Delta_\chi$
+values should be interpreted as point estimates with non-trivial variance. A more comprehensive analysis would
+average across multiple independent runs per protocol. \\
+
+We now consider the regime $\xi = 500$, in which a substantial mass of
+information-insensitive investors absorbs informed order flow at prices
+close to $\bar{v}$. Since closed-form expressions are no longer available,
+we solve the fixed-point system from Section~\ref{par:numerical_solver} numerically using
+Brent's method and obtain
+\[
+\chi^N \approx 166.667, \qquad \chi^M = 125.000, \qquad
+\lambda^N \approx 2.000 \times 10^{-3},
+\]
+which differ from the $\xi=0$ benchmarks by roughly three orders of
+magnitude. The intuition is that information-insensitive
+investors provide an additional channel of liquidity beyond the noise
+trader, collapsing $\lambda^N$ and allowing informed speculators to
+trade much more aggressively in absolute terms while preserving the
+per-unit margin $v_t - p_t$. The action and price grids are rebuilt
+with these new equilibrium values. We run each of the three update protocols
+for the horizon $T = 500 \times 10^6$ periods, and
+evaluate the frozen greedy policy over $T_{\text{eval}} = 10^5$
+additional periods using the same OLS estimator
+$\bar{\chi}^C = I^{-1}\sum_i \hat{\chi}^C_{i,1}$ as before.
+
+\paragraph{Results.}
+Table~\ref{tab:xi500} summarizes the three runs.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lccc}
+        \toprule
+        Method & $\bar{\chi}^C$ & $\Delta_\chi$ &
+        \begin{tabular}{c}Cells stable\\$\geq 10^6$ periods\end{tabular} \\
+        \midrule
+        Separate   & $153.80$ & $0.309$ & $96.5\%$ \\
+        Sequential & $130.60$ & $0.866$ & $98.1\%$ \\
+        Averaged   & $130.65$ & $0.865$ & $97.5\%$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{Learned trading intensity and convergence diagnostic under
+    the three update protocols at $\xi=500$, $I=2$, $T = 500 \times 10^6$.
+    Closed-form benchmarks: $\chi^N \approx 166.67$,
+    $\chi^M = 125.00$.}
+    \label{tab:xi500}
+\end{table}
+
+The $\bar{\chi}^C$ trajectories stabilise across all three protocols
+during the second half of training, and the per-cell stability
+plateaus near $96$-$98\%$, matching the patterns observed at $\xi=0$.
+The two speculators in the separate-matrices run learn nearly identical
+policies, so the gap with the
+shared-Q protocols is again a genuine equilibrium effect.
+
+Placing the two regimes side by side reveals a surprising pattern:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lcc}
+        \toprule
+        Method & $\Delta_\chi^{\xi=0}$ & $\Delta_\chi^{\xi=500}$ \\
+        \midrule
+        Separate   & $0.720$ & $0.309$ \\
+        Sequential & $0.919$ & $0.866$ \\
+        Averaged   & $0.902$ & $0.865$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{Collusion index across regimes for the three update protocols.}
+    \label{tab:xi_comparison}
+\end{table}
+
+The two shared-Q protocols deliver similar collusion in both regimes
+($\Delta_\chi \approx 0.87$-$0.92$), while the separate-matrices protocol
+drops sharply from $0.72$ at $\xi=0$ to $0.31$ at $\xi=500$. To verify that
+this gap is not a session-level artifact, we re-ran the separate-matrices
+protocol at $\xi=500$ with four additional random seeds. The five sessions
+returned $\Delta_\chi$ values of $\{0.307, 0.306, 0.328, 0.315, 0.320\}$,
+with mean $0.316$ and standard deviation $0.009$, giving a 95\% confidence
+interval of $[0.308, 0.323]$. The per-cell stability metric exceeded
+$92\%$ in every run. The collusion gap between separate-matrices and
+shared-Q is therefore a genuine equilibrium difference between the
+protocols, not a sampling artifact. The IRF analysis in the next section
+disentangles the mechanisms underlying both regimes.
+
+\subsection{Impulse Response Analysis}
+\label{sec:irf}
+
+The previous section showed that Q-learning algorithms converge to partially
+collusive strategies ($\Delta_\chi > 0$) in both the $\xi = 0$ and $\xi = 500$
+regimes. We now ask what sustains this collusion. The authors identify two
+distinct mechanisms. The first, \emph{price-trigger strategies}, works through
+implicit coordination: speculators monitor lagged prices and revert to
+aggressive trading whenever a price movement looks like a deviation by a rival.
+The second, \emph{over-pruning bias}, works through learning: aggressive
+actions are punished more heavily by adverse noise-trading shocks during
+training, so the algorithms systematically undervalue and prune them, ending up with a conservative policy regardless of any rival's behavior. Both
+mechanisms produce similar levels of steady-state collusion, but their
+signatures are different: price-trigger collusion reacts to an unexpected
+price movement with a punishment phase, while over-pruning collusion does not react at all.
+
+To distinguish between the two mechanisms empirically, we build a
+noise shock impulse response function (IRF) following the protocol of
+\citet[Section~5.3]{Dou2025}. After the Q-matrices have stabilized, we
+freeze them and draw $N_{\text{sim}} = 1{,}000$ independent paths of
+fundamental values $\{v_1, \ldots, v_H\}$ and noise realizations
+$\{u_1, \ldots, u_H\}$ with horizon $H = 9$. Each path is simulated twice
+under common random numbers: once as a baseline, and once with an
+exogenous shock applied to the noise trader's order at $t = 3$,
+$u_3 \leftarrow u_3 + u_{\text{shock}} \cdot \text{sgn}(v_3 - \bar{v})$,
+directed in line with the informed speculators' trade. We use three shock
+magnitudes calibrated as $0.5\%$, $2.5\%$, and $7\%$ of the average
+absolute order size $\mathbb{E}[|x_i|]$ under the learned policy,
+producing small, medium, and large price deviations at $t = 3$.
+
+To aggregate responses across paths with different signs of
+$v_t - \bar{v}$, we define the sign-adjusted variables
+$\tilde{p}_t = (p_t - \bar{v}) \text{sgn}(v_t - \bar{v})$ and
+$\tilde{x}_{i,t} = x_{i,t} \text{sgn}(v_t - \bar{v})$, which by
+construction are positive in expectation. For each variable we average
+across the $N_{\text{sim}}$ paths and report the percentage deviation of
+the shocked average from the baseline (long-run) mean for price
+$\tilde{p}_t$, per-speculator profit $\pi_t$, and order flow
+$\tilde{x}_t$, at each horizon $t = 1, \ldots, 9$.
+
+The two mechanisms predict very different IRF signatures. Under
+price-trigger, an elevated $p_{t-1}$ is read as a sign of defection from cartel behavior, so
+both speculators trade at $t = 4$ to punish the suspected deviator. If the trigger threshold is crossed, this
+generates an order-flow response and an amplified price deviation at
+$t = 4$ that can match or exceed the $t = 3$ spike
+\citep[Figure~3]{Dou2025}. Under over-pruning, the learned policy is
+essentially state-independent, so the shocked $p_3$ leaves the $t = 4$
+actions unchanged and prices go back to baseline immediately
+\citep[Figure~4]{Dou2025}.
+
+We begin with $\xi = 0$. Across all three update protocols and all three
+shock sizes, the IRFs show the same pattern. The price
+spikes at $t = 3$ in proportion to the shock magnitude
+($\approx 0.26\%$, $1.31\%$, and $3.66\%$ for the small, medium, and
+large shocks respectively), and the per-speculator profit drops by
+approximately the same percentage in absolute terms, reflecting the price-impact response $\Delta p_3 \approx \lambda^N
+u_{\text{shock}}$. At $t = 4$ the price deviation is dampened in every
+case, falling within $[-0.33\%, 0.20\%]$ across the three methods and
+three shock sizes: between one and two orders of magnitude smaller than
+the $t = 3$ spike, and with no consistent sign across methods. The
+order-flow deviation at $t = 4$ stays within the same range. By
+$t = 6$-$7$ all responses have decayed to noise-floor levels.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.85\textwidth]{irf_xi0_separate_I2.pdf}
+    \\[0.5em]
+    \includegraphics[width=0.85\textwidth]{irf_xi0_sequential_I2.pdf}
+    \\[0.5em]
+    \includegraphics[width=0.85\textwidth]{irf_xi0_averaged_I2.pdf}
+    \caption{Impulse response functions at $\xi = 0$ for the three update
+    methods (top to bottom: separate, sequential, averaged). Across all
+    panels, the response decays to zero immediately after the
+    $t = 3$ spike.}
+    \label{fig:irf_xi0}
+\end{figure}
+
+This pattern matches the over-pruning prediction: no order-flow
+adjustment at $t = 4$ and dampening of price deviation. The
+absence of any state-dependent response is exactly what the authors
+predict for case (iii) of their taxonomy (low $\xi$, low $\sigma_u$),
+where price-trigger strategies have no profitable foundation and
+over-pruning is the only mechanism available \citep[Section~5.5]{Dou2025}.
+
+The picture at $\xi = 500$ is somewhat different: the $t = 3$ spike is similar in proportional terms to the $\xi = 0$ case
+($0.25\%$, $1.23\%$, $3.44\%$ across all methods), but the response at
+$t = 4$ and beyond depends strongly on the update protocol. Under the
+two shared protocols, both price and order flow exhibit large
+positive deviations at $t = 4$, often exceeding the spike at $t = 3$.
+The sequential medium shock, for example, yields $\tilde p_3 = 1.23\%$
+followed by $\tilde p_4 = 4.40\%$, an amplification factor of $3.6$.
+The $t = 4$ deviations approach a similar level
+($\approx 4$-$5\%$) for medium and large shocks, while remaining $\approx 1$-$2\%$ for the small shock.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.85\textwidth]{irf_xi500_separate_I2.pdf}
+    \\[0.5em]
+    \includegraphics[width=0.85\textwidth]{irf_xi500_sequential_I2.pdf}
+    \\[0.5em]
+    \includegraphics[width=0.85\textwidth]{irf_xi500_averaged_I2.pdf}
+    \caption{Impulse response functions at $\xi = 500$ for the three
+    update methods (top to bottom: separate, sequential, averaged).
+    The shared-Q protocols (middle, bottom) show amplification at $t = 4$ which is consistent with the price-trigger
+    mechanism. The separate matrices method (top) shows a weaker but similar pattern.}
+    \label{fig:irf_xi500}
+\end{figure}
+
+This is the saturation pattern \citet[Figure~3]{Dou2025} identify as the
+evidence of a price-trigger punishment scheme: once the trigger
+threshold is crossed, both speculators revert to a coordinated
+punishment whose intensity is set by the trigger response itself rather
+than by the magnitude of the original deviation. An elevated $p_{t-1}$
+is read as a sign of defection, and the speculators respond by trading
+more aggressively at $t = 4$ to punish the suspected deviator.
+
+The separate-matrices protocol shows a weaker but similar pattern. The small shock generates essentially no response
+at $t = 4$ ($\tilde p_4 = -0.05\%$), while the medium and large shocks
+produce small but positive amplifications ($\tilde p_4 = 0.21\%$ and
+$0.13\%$). The threshold and saturation structure is also preserved, and the
+saturation level is much lower than under the shared-Q protocols. This
+matches the small-deviation case of \citet{Dou2025}, where shocks below
+the threshold fail to trigger a response and the system reverts to
+baseline at $t = 4$. The lower saturation level under separate matrices
+is consistent with its lower collusion index
+($\Delta_\chi^{\text{sep}} = 0.31$ versus
+$\Delta_\chi^{\text{shared}} \approx 0.87$): less collusion implies a
+less strict punishment.
+
+All three protocols at $\xi=500$ are therefore consistent with price-trigger
+collusion. The shared matrix methods deliver a sharper signature than separate matrices,
+possibly because common updates accelerate convergence toward conservative actions; the multi-seed evidence in Section~5.2 confirms this gap is a genuine protocol effect rather than session-level noise. The separate-matrices result, which follows the original paper more closely, confirms
+that the mechanism is present at $\xi=500$ even at lower intensity.
+
+\section{Conclusion}
+The theoretical analysis established the benchmarks: at $\xi=0$, the cartel 
+intensity lies below the Nash intensity for $I\ge 2$, per-speculator profits 
+satisfy $\pi^M>\pi^N$, and all three market-quality dimensions favor the 
+competitive outcome, with the gap widening in $I$, in line with 
+\citet{Subrahmanyam1991}. For $\xi>0$, $\lambda$ collapses toward $1/\xi$ and 
+quantities rescale by orders of magnitude, but the rankings $\chi^N>\chi^M$ and 
+$\pi^M>\pi^N$ are preserved.
+
+The simulations show the collusive outcome emerges in practice across all three 
+protocols and both regimes, with $\Delta_\chi$ between roughly $0.3$ and $0.9$. 
+The IRF analysis then identifies the mechanism in each regime: at $\xi=0$, no 
+$t=4$ adjustment (the over-pruning signature); at $\xi=500$, the threshold and saturation pattern of price-trigger collusion. Despite reaching comparable 
+steady-state collusion levels, the two regimes produce qualitatively different 
+IRF behavior, validating the two-mechanism theory of the authors within 
+our setting. The magnitude is sensitive to the update protocol: separate matrices yields lower $\Delta_\chi$ than a shared Q-matrix, particularly at $\xi=500$; and a 
+fuller treatment would estimate session-level distributions across all 
+configurations, as \citet{Dou2025} do. However, the main result is clear: algorithms with no shared information, no communication, and no built-in 
+incentive to cooperate learn to trade well below the competitive intensity, which suggests that the absence of explicit coordination is not a sufficient safeguard against algorithmic collusion.
+
+% -------------------- REFERENCES --------------------
+
+\begin{thebibliography}{9}
+
+\bibitem[Calvano et al.(2020)]{Calvano2020}
+Calvano, E., Calzolari, G., Denicolò, V. and Pastorello, S. (2020).
+Artificial intelligence, algorithmic pricing, and collusion.
+\textit{American Economic Review}, 110(10), 3267--3297.
+
+\bibitem[Dou et al.(2025)]{Dou2025}
+Dou, W. W., Goldstein, I. and Ji, Y. (2025).
+AI-powered trading, algorithmic collusion, and price efficiency.
+\textit{NBER Working Paper 34054}.
+
+\bibitem[Kyle(1985)]{Kyle1985}
+Kyle, A. S. (1985).
+Continuous auctions and insider trading.
+\textit{Econometrica}, 53(6), 1315--1335.
+
+\bibitem[Subrahmanyam(1991)]{Subrahmanyam1991}
+Subrahmanyam, A. (1991).
+Risk aversion, market liquidity, and price efficiency.
+\textit{Review of Financial Studies}, 4(3), 417--441.
+
+\end{thebibliography}
+
+% -------------------- APPENDIX --------------------
+\newpage
+\appendix
+
+\input{code_appendix.tex}
+
+\end{document}
