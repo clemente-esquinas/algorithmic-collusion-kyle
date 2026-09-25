@@ -18,9 +18,10 @@ Can self-interested trading algorithms learn to collude without communicating? T
 
 ```
 ├── notebooks/
-│   └── algorithmic_collusion.ipynb   # all computations, organised by exercise
+│   └── algorithmic_collusion.ipynb   # all computations, organised by section
 ├── report/
-│   └── algorithmic_collusion_report.pdf
+│   ├── algorithmic_collusion_report.pdf
+│   └── latex/                        # LaTeX source of the report
 ├── figures/                          # plots are saved here when the notebook runs
 ├── requirements.txt
 └── README.md
@@ -29,7 +30,7 @@ Can self-interested trading algorithms learn to collude without communicating? T
 ## Running it
 
 ```bash
-git clone https://github.com/<your-username>/algorithmic-collusion-kyle.git
+git clone https://github.com/clemente-esquinas/algorithmic-collusion-kyle.git
 cd algorithmic-collusion-kyle
 pip install -r requirements.txt
 jupyter notebook notebooks/algorithmic_collusion.ipynb
@@ -39,5 +40,5 @@ The Q-learning simulations are JIT-compiled with Numba; the multi-seed experimen
 
 ## References
 
-- Dou, W. W., Goldstein, I., & Ji, Y. (2025). *AI-Powered Trading, Algorithmic Collusion, and Price Efficiency.*
+- Dou, W. W., Goldstein, I., & Ji, Y. (2025). *AI-Powered Trading, Algorithmic Collusion, and Price Efficiency.* NBER Working Paper 34054.
 - Kyle, A. S. (1985). Continuous Auctions and Insider Trading. *Econometrica*, 53(6), 1315–1335.
